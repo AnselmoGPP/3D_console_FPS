@@ -64,10 +64,22 @@ int main()
 		// Controls
 		// Handle CCW Rotation
 		if (GetAsyncKeyState((unsigned short)'A') & 0x8000)
-			fPlayerA -= (0.1f) * fElapsedTime;
+			fPlayerA -= (0.8f) * fElapsedTime;
 
 		if (GetAsyncKeyState((unsigned short)'D') & 0x8000)
-			fPlayerA += (0.1f) * fElapsedTime;
+			fPlayerA += (0.8f) * fElapsedTime;
+
+		if (GetAsyncKeyState((unsigned short) 'W') & 0x8000)
+		{
+			fPlayerX += sinf(fPlayerA) * 5.0f * fElapsedTime;
+			fPlayerY += cosf(fPlayerA) * 5.0f * fElapsedTime;
+		}
+
+		if (GetAsyncKeyState((unsigned short) 'S') & 0x8000)
+		{
+			fPlayerX -= sinf(fPlayerA) * 5.0f * fElapsedTime;
+			fPlayerY -= cosf(fPlayerA) * 5.0f * fElapsedTime;
+		}
 
 		// Ray tracing computations. Compute distances till wall within the field of view
 		for (int x = 0; x < nScreenWidth; x++) 
@@ -109,12 +121,20 @@ int main()
 			int nFloor = nScreenHeight - nCeiling;
 
 			// Paint the screen
+			short nShade = ' ';
+
+			if (fDistanceToWall <= fDepth / 4.0f)		nShade = 0x2588;	// Very close
+			else if (fDistanceToWall < fDepth / 3.0f)	nShade = 0x2593;
+			else if (fDistanceToWall < fDepth / 2.0f)	nShade = 0x2592;
+			else if (fDistanceToWall < fDepth)			nShade = 0x2591;
+			else										nShade = ' ';		// Too far away
+
 			for (int y = 0; y < nScreenHeight; y++)
 			{
 				if (y < nCeiling)
 					screen[y * nScreenWidth + x] = ' ';
 				else if (y > nCeiling && y <= nFloor)
-					screen[y * nScreenWidth + x] = '#';
+					screen[y * nScreenWidth + x] = nShade;
 				else
 					screen[y * nScreenWidth + x] = ' ';
 			}
