@@ -1,22 +1,28 @@
-// https://www.youtube.com/watch?v=xW8skO7MFYw
-// TODO: Bigger screen, zoom out, frames per second resolution.
+// Making FPS: https://www.youtube.com/watch?v=xW8skO7MFYw
+// Console functions: https://docs.microsoft.com/en-us/windows/console/console-functions
+// Change console font size: https://stackoverflow.com/questions/35382432/how-to-change-the-console-font-size
+/*
+	Modifiable parameters (here, the characters are the pixels):
+	- Map resolution: nMapHeight, nMapWidth
+	- Screen resolution: nScreenWidth, nScreenHeight
+	- Pixel size: font.dwFontSize.Y 
+	- Player position: fPlayerX, fPlayerY, fPlayerA
+	- Field of view: fFOV
+	- View depth: fDepth
+*/
 
 #include <Windows.h>
 #include <algorithm>
 #include <iostream>
-#include <sstream>
-#include <utility>
-#include <iomanip>
-#include <wchar.h>
 #include <string>
 #include <vector>
 #include <chrono>
 
-int nScreenWidth = 120;
-int nScreenHeight = 40;
+int nScreenWidth = 500;		// 120 (y font = 24)
+int nScreenHeight = 120;	// 40 (y font = 24)
 
-float fPlayerX = 8.0f;		// Player's X position
-float fPlayerY = 8.0f;		// Player's Y position
+float fPlayerX = 14.0f;		// Player's X position
+float fPlayerY = 4.0f;		// Player's Y position
 float fPlayerA = 0.0f;		// Angle player is looking at
 
 int nMapHeight = 16;
@@ -37,35 +43,48 @@ int main()
 	DWORD dwBytesWritten = 0;
 
 	// Configure window
-	//HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-	_COORD screenBufSize = { nScreenWidth, nScreenHeight };
-	bool WINAPI screen_buff = SetConsoleScreenBufferSize(hConsole, screenBufSize);
+	_COORD screenBufSize = { nScreenWidth, nScreenHeight };							// HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	bool WINAPI screen_buff = SetConsoleScreenBufferSize(hConsole, screenBufSize);	// Set size of screen buffer
 	SMALL_RECT windowSize = { 0, 0, nScreenWidth, nScreenHeight };
-	bool WINAPI resiz = SetConsoleWindowInfo(hConsole, TRUE, &windowSize);
+	bool WINAPI resiz = SetConsoleWindowInfo(hConsole, TRUE, &windowSize);			// Set the size of window
 	SetConsoleTitle((LPCSTR)"Hans Console 3D engine");
 
+	// Configure fonts
+	_CONSOLE_FONT_INFOEX font;
+	font.cbSize = sizeof(font);
+	font.nFont = 0;							// Index of the font in the system's console font table
+	font.dwFontSize.X = 0;					// Width of each character in the font
+	font.dwFontSize.Y = 1;					// Height (24) <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+	font.FontFamily = FF_DONTCARE;			// The font pitch and family
+	font.FontWeight = FW_NORMAL;			// The font weight
+	std::wcscpy(font.FaceName, L"Consolas");	// Name of the typeface: Consolas, Courier, Arial
+
+	bool WINAPI consoleFont = SetCurrentConsoleFontEx(hConsole, true, &font);
+
+	// Create map
 	std::wstring map;
 	map += L"################";
+	map += L"#......#.......#";
+	map += L"#......#.......#";
 	map += L"#..............#";
-	map += L"#..####..#######";
-	map += L"#..#...........#";
-	map += L"#..#...........#";
-	map += L"#..#...........#";
-	map += L"#..#...........#";
+	map += L"#......#.......#";
+	map += L"#......#.......#";
+	map += L"####.###.......#";
+	map += L"#......#.......#";
+	map += L"#......#####.###";
+	map += L"#......#.......#";
+	map += L"#......#.......#";
+	map += L"#......#.......#";
 	map += L"#..............#";
-	map += L"#..............#";
-	map += L"#..#...........#";
-	map += L"#..#...........#";
-	map += L"#..#...........#";
-	map += L"#..#...........#";
-	map += L"#..####..#######";
-	map += L"#...............";
+	map += L"#......#.......#";
+	map += L"#......#.......#";
 	map += L"################";
 
+	// Timers for making movement independent from the computation power of the machine
 	auto tp1 = std::chrono::system_clock::now();
 	auto tp2 = std::chrono::system_clock::now();
 
-	// Game loop
+	// Game loop ----------
 	while (1) 
 	{
 		tp2 = std::chrono::system_clock::now();
@@ -73,12 +92,11 @@ int main()
 		tp1 = tp2;
 		float fElapsedTime = elapsedTime.count();
 
-		// Controls -----------------------------------------------------------------------------------------------
-		// Handle CCW Rotation
+		// Controls  ----->  A (CCW rotation), D (CW rotation), W (ahead), S (backwards), Q (left side) E (right side)
 		if (GetAsyncKeyState((unsigned short)'A') & 0x8000)
 			fPlayerA -= (0.8f) * fElapsedTime;
 
-		if (GetAsyncKeyState((unsigned short)'D') & 0x8000)
+		if (GetAsyncKeyState((unsigned short)'D') & 0x8000)	
 			fPlayerA += (0.8f) * fElapsedTime;
 
 		if (GetAsyncKeyState((unsigned short) 'W') & 0x8000)
@@ -129,7 +147,7 @@ int main()
 			}
 		}
 
-		// Ray tracing computations. Compute distances when wall is within the field of view ----------------------
+		// Ray tracing computations for each column. Compute distances when wall is within the field of view ----------------------
 		for (int x = 0; x < nScreenWidth; x++) 
 		{
 			// For each column, calculate the projected ray angle into world space
@@ -137,11 +155,12 @@ int main()
 
 			float fDistanceToWall = 0;
 			bool bHitWall = false;
-			bool bBoundary = false;			// For detecting the edge of a cell
+			bool bBoundary = false;			// Flag for detecting the edge of a cell
 
 			float fEyeX = sinf(fRayAngle);	// Unit vector for ray in player space
 			float fEyeY = cosf(fRayAngle);
 			
+			// Detect walls using rays
 			while (!bHitWall && fDistanceToWall < fDepth) 
 			{
 				fDistanceToWall += 0.1f;

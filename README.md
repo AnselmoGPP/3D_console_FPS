@@ -1,6 +1,6 @@
 # console_3D_engine
 
-This is a 3D console game engine for making a FPS (first person shooter).
+This is a 3D console game engine for making a FPS (first person shooter) in the Windows command prompt.
 
 Links:
 Console 3D fps:   https://www.youtube.com/watch?v=xW8skO7MFYw
